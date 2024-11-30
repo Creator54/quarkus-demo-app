@@ -1,79 +1,154 @@
-# Getting started with Quarkus
+# Getting started with Quarkus and Instrumentation with SigNoz
 
-This is a minimal CRUD service exposing a couple of endpoints over REST.
+This is a minimal REST service exposing endpoints over REST with built-in observability using OpenTelemetry and SigNoz.
 
-Under the hood, this demo uses:
+## Stack
+- RESTEasy for REST endpoints
+- OpenTelemetry for instrumentation
+- SigNoz for observability
+- REST-assured and JUnit 5 for testing
 
-- RESTEasy to expose the REST endpoints
-- REST-assured and JUnit 5 for endpoint testing
-
-## Requirements
-
-To compile and run this demo you will need:
+## Prerequisites
 
 - JDK 17+
-- GraalVM
+- GraalVM (only for native builds)
+- Maven
+- Docker (optional, for containerized builds)
 
-### Configuring GraalVM and JDK 17+
+## Environment Setup
 
-Make sure that both the `GRAALVM_HOME` and `JAVA_HOME` environment variables have
-been set, and that a JDK 17+ `java` command is on the path.
+Set the following environment variables before running the application:
 
-See the [Building a Native Executable guide](https://quarkus.io/guides/building-native-image-guide)
-for help setting up your environment.
+```bash
+# Required SigNoz configuration
+export OTEL_RESOURCE_ATTRIBUTES=service.name=<your-app-name>
+export OTEL_EXPORTER_OTLP_HEADERS="signoz-access-token=<your-signoz-key>"
+export OTEL_EXPORTER_OTLP_ENDPOINT=https://ingest.<region>.signoz.cloud:443
+```
 
-## Building the application
+Replace:
+- `<your-app-name>` with your application name
+- `<your-signoz-key>` with your SigNoz ingestion key
+- `<region>` with your SigNoz cloud region (us, eu, or in)
 
-Launch the Maven build on the checked out sources of this demo:
+## Quick Start
 
-> ./mvnw package
+### 1. Clone the Repository
+```bash
+git clone <repository-url>
+cd <repository-name>
+```
 
-### Live coding with Quarkus
+### 2. Run the Application
 
-The Maven Quarkus plugin provides a development mode that supports
-live coding. To try this out:
+#### Development Mode
+```bash
+./mvnw quarkus:dev
+```
 
-> ./mvnw quarkus:dev
+#### Production Mode
+```bash
+# Build the application
+./mvnw package
 
-This command will leave Quarkus running in the foreground listening on port 8080.
+# Run the application
+java -jar target/quarkus-app/quarkus-run.jar
+```
 
-1. Visit the default endpoint: [http://127.0.0.1:8080](http://127.0.0.1:8080).
-    - Make a simple change to [src/main/resources/META-INF/resources/index.html](src/main/resources/META-INF/resources/index.html) file.
-    - Refresh the browser to see the updated page.
-2. Visit the `/hello` endpoint: [http://127.0.0.1:8080/hello](http://127.0.0.1:8080/hello)
-    - Update the response in [src/main/java/org/acme/quickstart/GreetingResource.java](src/main/java/org/acme/quickstart/GreetingResource.java). Replace `hello` with `hello there` in the `hello()` method.
-    - Refresh the browser. You should now see `hello there`.
-    - Undo the change, so the method returns `hello` again.
-    - Refresh the browser. You should now see `hello`.
+### 3. Test the Endpoints
 
-### Run Quarkus in JVM mode
+```bash
+# Test the hello endpoint
+curl http://localhost:8080/hello
 
-When you're done iterating in developer mode, you can run the application as a
-conventional jar file.
+# Test the greeting endpoint
+curl http://localhost:8080/hello/greeting/YourName
+```
 
-First compile it:
+## Build Options
 
-> ./mvnw package
+### JVM Mode
+```bash
+./mvnw package
+java -jar target/quarkus-app/quarkus-run.jar
+```
 
-Then run it:
+### Native Mode
+```bash
+# Build native executable
+./mvnw package -Dnative
 
-> java -jar ./target/quarkus-app/quarkus-run.jar
+# Run the native executable
+./target/getting-started-1.0.0-SNAPSHOT-runner
+```
 
-Have a look at how fast it boots, or measure the total native memory consumption.
+### Docker Builds
 
-### Run Quarkus as a native executable
+#### JVM Mode
+```bash
+# Build using JVM Dockerfile
+docker build -f src/main/docker/Dockerfile.jvm -t quarkus-app-jvm .
 
-You can also create a native executable from this application without making any
-source code changes. A native executable removes the dependency on the JVM:
-everything needed to run the application on the target platform is included in
-the executable, allowing the application to run with minimal resource overhead.
+# Run the container
+docker run -i --rm -p 8080:8080 \
+  -e OTEL_RESOURCE_ATTRIBUTES \
+  -e OTEL_EXPORTER_OTLP_HEADERS \
+  -e OTEL_EXPORTER_OTLP_ENDPOINT \
+  quarkus-app-jvm
+```
 
-Compiling a native executable takes a bit longer, as GraalVM performs additional
-steps to remove unnecessary codepaths. Use the  `native` profile to compile a
-native executable:
+#### Native Mode
+```bash
+# Build using Native Dockerfile
+docker build -f src/main/docker/Dockerfile.native -t quarkus-app-native .
 
-> ./mvnw package -Dnative
+# Run the container
+docker run -i --rm -p 8080:8080 \
+  -e OTEL_RESOURCE_ATTRIBUTES \
+  -e OTEL_EXPORTER_OTLP_HEADERS \
+  -e OTEL_EXPORTER_OTLP_ENDPOINT \
+  quarkus-app-native
+```
 
-After getting a cup of coffee, you'll be able to run this executable directly:
+## Development
 
-> ./target/getting-started-1.0.0-SNAPSHOT-runner
+### Live Coding
+Quarkus offers dev mode with live coding:
+```bash
+./mvnw quarkus:dev
+```
+
+This enables:
+- Hot reload for code changes
+- Dev UI at http://localhost:8080/q/dev
+- Continuous testing
+
+### Testing
+```bash
+# Run tests
+./mvnw test
+
+# Run integration tests
+./mvnw verify
+```
+
+## Observability with SigNoz
+
+### Verify Instrumentation
+1. Start the application
+2. Make some test requests
+3. Check SigNoz UI:
+   - Open Services tab
+   - Look for your application name
+   - View traces, metrics, and logs
+
+### Troubleshooting
+- Ensure environment variables are properly set
+- Check application logs for any OpenTelemetry-related errors
+- Verify network connectivity to SigNoz endpoints
+- For detailed logs, set `quarkus.log.category."io.opentelemetry".level=DEBUG`
+
+## Additional Resources
+- [Quarkus Guide](https://quarkus.io/guides/getting-started)
+- [OpenTelemetry Documentation](https://opentelemetry.io/docs/)
+- [SigNoz Documentation](https://signoz.io/docs/)
